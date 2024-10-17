@@ -26,6 +26,16 @@ import dev.kwasi.echoservercomplete.peerlist.PeerListAdapterInterface
 import dev.kwasi.echoservercomplete.wifidirect.WifiDirectInterface
 import dev.kwasi.echoservercomplete.wifidirect.WifiDirectManager
 
+import java.security.MessageDigest
+import kotlin.text.Charsets.UTF_8
+import javax.crypto.spec.SecretKeySpec
+import javax.crypto.spec.IvParameterSpec
+import javax.crypto.SecretKey
+import javax.crypto.Cipher
+//import kotlin.io.encoding.Base64
+import android.util.Base64
+
+
 class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerListAdapterInterface, NetworkMessageInterface {
     private var wfdManager: WifiDirectManager? = null
 
@@ -89,7 +99,16 @@ class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerList
     }
 
     fun discoverNearbyPeers(view: View) {
-        wfdManager?.discoverPeers()
+
+        val et1: EditText = findViewById(R.id.etStudentID)
+
+        val studentID = et1.text.toString()
+
+        if(studentID.length==9 && studentID.startsWith("816")) {
+            wfdManager?.discoverPeers()
+        } else {
+            Toast.makeText(this, "ID is invalid", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun updateUI(){
@@ -165,6 +184,10 @@ class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerList
         } else if (!groupInfo.isGroupOwner && client == null) {
             client = Client(this)
             deviceIp = client!!.ip
+
+            // ** Send "I am here" message to the lecturer **
+            val message = ContentModel("I am here", deviceIp)
+            client?.sendMessage(message)
         }
     }
 
@@ -179,9 +202,69 @@ class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerList
 
 
     override fun onContent(content: ContentModel) {
-        runOnUiThread{
-            chatListAdapter?.addItemToEnd(content)
+        runOnUiThread {
+            // Check if the message is the random number (R) sent by the lecturer
+            if (content.message.startsWith("R,")) {
+                // Extract R from the message
+                val rValue = content.message.substringAfter("R,")
+
+                // Get the Student ID from the EditText field
+                val etStudentID: EditText = findViewById(R.id.etStudentID)
+                val studentID = etStudentID.text.toString()
+
+                // Hash the Student ID
+                val hashedStudentID = hashStrSha256(studentID)
+
+                // Generate AES Key and IV using the hashed Student ID
+                val aesKey = generateAESKey(hashedStudentID) // Use the hashed Student ID as the seed
+                val aesIv = generateIV(hashedStudentID) // Use the hashed Student ID for IV generation
+
+                // Encrypt R using the generated AES Key and IV
+                val encryptedResponse = encryptMessage(rValue, aesKey, aesIv)
+
+                // Send the encrypted response back to the lecturer
+                val responseMessage = ContentModel(encryptedResponse, deviceIp)
+                client?.sendMessage(responseMessage)
+            } else {
+                // Handle other chat messages
+                chatListAdapter?.addItemToEnd(content)
+            }
         }
     }
 
+
+    fun hashStrSha256(str: String): String{
+        val algorithm = "SHA-256"
+        val hashedString = MessageDigest.getInstance(algorithm).digest(str.toByteArray(UTF_8))
+        return hashedString.toHex()
+    }
+
+    fun generateAESKey(seed: String): SecretKeySpec {
+        val first32Chars = getFirstNChars(seed,32)
+        val secretKey = SecretKeySpec(first32Chars.toByteArray(), "AES")
+        return secretKey
+    }
+
+    fun generateIV(seed: String): IvParameterSpec {
+        val first16Chars = getFirstNChars(seed, 16)
+        return IvParameterSpec(first16Chars.toByteArray())
+    }
+
+    fun encryptMessage(plaintext: String, aesKey: SecretKeySpec, aesIv: IvParameterSpec): String {
+        val plainTextByteArr = plaintext.toByteArray()
+
+        val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
+        cipher.init(Cipher.ENCRYPT_MODE, aesKey, aesIv)
+
+        val encrypted = cipher.doFinal(plainTextByteArr)
+
+        // Use android.util.Base64 for encoding
+        return Base64.encodeToString(encrypted, Base64.DEFAULT) // Encode to Base64 string
+    }
+
+
+    fun ByteArray.toHex() = joinToString(separator = "") { byte -> "%02x".format(byte) }
+
+    fun getFirstNChars(str: String, n:Int) = str.substring(0,n)
 }
+
