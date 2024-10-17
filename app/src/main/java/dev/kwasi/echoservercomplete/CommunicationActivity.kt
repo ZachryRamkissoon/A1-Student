@@ -186,11 +186,11 @@ class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerList
             deviceIp = client!!.ip
 
             // ** Send "I am here" message to the lecturer **
-            val message = ContentModel("I am here", deviceIp)
+            val message = ContentModel("I am here", "192.168.49.1")
             client?.sendMessage(message)
 
             // Update UI to show chat interface
-            updateUI()
+//            updateUI()
         }
     }
 
