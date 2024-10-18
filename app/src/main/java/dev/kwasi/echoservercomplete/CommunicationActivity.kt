@@ -7,6 +7,7 @@ import android.net.wifi.p2p.WifiP2pGroup
 import android.net.wifi.p2p.WifiP2pManager
 import android.os.Bundle
 import android.view.View
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
@@ -25,15 +26,6 @@ import dev.kwasi.echoservercomplete.peerlist.PeerListAdapter
 import dev.kwasi.echoservercomplete.peerlist.PeerListAdapterInterface
 import dev.kwasi.echoservercomplete.wifidirect.WifiDirectInterface
 import dev.kwasi.echoservercomplete.wifidirect.WifiDirectManager
-
-import java.security.MessageDigest
-import kotlin.text.Charsets.UTF_8
-import javax.crypto.spec.SecretKeySpec
-import javax.crypto.spec.IvParameterSpec
-import javax.crypto.SecretKey
-import javax.crypto.Cipher
-//import kotlin.io.encoding.Base64
-import android.util.Base64
 
 
 class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerListAdapterInterface, NetworkMessageInterface {
@@ -55,6 +47,8 @@ class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerList
     private var server: Server? = null
     private var client: Client? = null
     private var deviceIp: String = ""
+    private var validID = false
+    private var seedPlaintext: String? = " "
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -94,21 +88,19 @@ class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerList
             unregisterReceiver(it)
         }
     }
-    fun createGroup(view: View) {
-        wfdManager?.createGroup()
-    }
+//    fun createGroup(view: View) {
+//        wfdManager?.createGroup()
+//    }
 
     fun discoverNearbyPeers(view: View) {
-
-        val et1: EditText = findViewById(R.id.etStudentID)
-
-        val studentID = et1.text.toString()
-
-        if(studentID.length==9 && studentID.startsWith("816")) {
+        isValidID()
+        if(validID){
+            hideKeyboard()
             wfdManager?.discoverPeers()
-        } else {
-            Toast.makeText(this, "ID is invalid", Toast.LENGTH_SHORT).show()
+            val text: EditText = findViewById(R.id.etStudentID)
+            seedPlaintext = text.toString()
         }
+        else updateUI()
     }
 
     private fun updateUI(){
@@ -116,8 +108,8 @@ class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerList
         // IF the WFD adapter is NOT enabled then
         //      Show UI that says turn on the wifi adapter
         // ELSE IF there is NO WFD connection then i need to show a view that allows the user to either
-            // 1) create a group with them as the group owner OR
-            // 2) discover nearby groups
+        // 1) create a group with them as the group owner OR
+        // 2) discover nearby groups
         // ELSE IF there are nearby groups found, i need to show them in a list
         // ELSE IF i have a WFD connection i need to show a chat interface where i can send/receive messages
         val wfdAdapterErrorView:ConstraintLayout = findViewById(R.id.clWfdAdapterDisabled)
@@ -127,7 +119,7 @@ class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerList
         wfdNoConnectionView.visibility = if (wfdAdapterEnabled && !wfdHasConnection) View.VISIBLE else View.GONE
 
         val rvPeerList: RecyclerView= findViewById(R.id.rvPeerListing)
-        rvPeerList.visibility = if (wfdAdapterEnabled && !wfdHasConnection && hasDevices) View.VISIBLE else View.GONE
+        rvPeerList.visibility = if (wfdAdapterEnabled && !wfdHasConnection && hasDevices && validID) View.VISIBLE else View.GONE
 
         val wfdConnectedView:ConstraintLayout = findViewById(R.id.clHasConnection)
         wfdConnectedView.visibility = if(wfdHasConnection)View.VISIBLE else View.GONE
@@ -137,10 +129,30 @@ class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerList
         val etMessage:EditText = findViewById(R.id.etMessage)
         val etString = etMessage.text.toString()
         val content = ContentModel(etString, deviceIp)
+        val temp = ContentModel(etString, deviceIp)
         etMessage.text.clear()
         client?.sendMessage(content)
-        chatListAdapter?.addItemToEnd(content)
+        chatListAdapter?.addItemToEnd(temp)
 
+    }
+
+
+
+    private fun isValidID(){
+        val et: EditText = findViewById(R.id.etStudentID)
+
+        val value = et.text.toString().toIntOrNull()
+        var text = " "
+        if (value != null && value in 810000000 until 900000000) {
+            text="Updating Listings..."
+            validID = true
+        } else {
+            text="ID is  invalid"
+            validID = false
+        }
+
+        val toast = Toast.makeText(this, text, Toast.LENGTH_SHORT)
+        toast.show()
     }
 
     override fun onWiFiDirectStateChanged(isEnabled: Boolean) {
@@ -173,29 +185,28 @@ class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerList
         }
         val toast = Toast.makeText(this, text , Toast.LENGTH_SHORT)
         toast.show()
-        wfdHasConnection = groupInfo != null
+//        wfdHasConnection = groupInfo != null
+        wfdHasConnection = true
 
         if (groupInfo == null){
             server?.close()
             client?.close()
+            Toast.makeText(this, "No Group Info" , Toast.LENGTH_SHORT).show()
         } else if (groupInfo.isGroupOwner && server == null){
             server = Server(this)
             deviceIp = "192.168.49.1"
         } else if (!groupInfo.isGroupOwner && client == null) {
-            client = Client(this)
+            client = Client(this, seedPlaintext.toString())
             deviceIp = client!!.ip
+            //val content = ContentModel("I am here", deviceIp)
+            //client?.sendMessagePlain(content)
 
-            // ** Send "I am here" message to the lecturer **
-            val message = ContentModel("I am here", "192.168.49.1")
-            client?.sendMessage(message)
-
-            // Update UI to show chat interface
-//            updateUI()
         }
     }
 
     override fun onDeviceStatusChanged(thisDevice: WifiP2pDevice) {
         val toast = Toast.makeText(this, "Device parameters have been updated" , Toast.LENGTH_SHORT)
+
         toast.show()
     }
 
@@ -205,69 +216,21 @@ class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerList
 
 
     override fun onContent(content: ContentModel) {
-        runOnUiThread {
-            // Check if the message is the random number (R) sent by the lecturer
-            if (content.message.startsWith("R,")) {
-                // Extract R from the message
-                val rValue = content.message.substringAfter("R,")
+        runOnUiThread{
+            chatListAdapter?.addItemToEnd(content)
+        }
+    }
 
-                // Get the Student ID from the EditText field
-                val etStudentID: EditText = findViewById(R.id.etStudentID)
-                val studentID = etStudentID.text.toString()
-
-                // Hash the Student ID
-                val hashedStudentID = hashStrSha256(studentID)
-
-                // Generate AES Key and IV using the hashed Student ID
-                val aesKey = generateAESKey(hashedStudentID) // Use the hashed Student ID as the seed
-                val aesIv = generateIV(hashedStudentID) // Use the hashed Student ID for IV generation
-
-                // Encrypt R using the generated AES Key and IV
-                val encryptedResponse = encryptMessage(rValue, aesKey, aesIv)
-
-                // Send the encrypted response back to the lecturer
-                val responseMessage = ContentModel(encryptedResponse, deviceIp)
-                client?.sendMessage(responseMessage)
-            } else {
-                // Handle other chat messages
-                chatListAdapter?.addItemToEnd(content)
-            }
+    private fun hideKeyboard() {
+        // Get the current focus
+        val view = this.currentFocus
+        if (view != null) {
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(view.windowToken, 0)
         }
     }
 
 
-    fun hashStrSha256(str: String): String{
-        val algorithm = "SHA-256"
-        val hashedString = MessageDigest.getInstance(algorithm).digest(str.toByteArray(UTF_8))
-        return hashedString.toHex()
-    }
-
-    fun generateAESKey(seed: String): SecretKeySpec {
-        val first32Chars = getFirstNChars(seed,32)
-        val secretKey = SecretKeySpec(first32Chars.toByteArray(), "AES")
-        return secretKey
-    }
-
-    fun generateIV(seed: String): IvParameterSpec {
-        val first16Chars = getFirstNChars(seed, 16)
-        return IvParameterSpec(first16Chars.toByteArray())
-    }
-
-    fun encryptMessage(plaintext: String, aesKey: SecretKeySpec, aesIv: IvParameterSpec): String {
-        val plainTextByteArr = plaintext.toByteArray()
-
-        val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
-        cipher.init(Cipher.ENCRYPT_MODE, aesKey, aesIv)
-
-        val encrypted = cipher.doFinal(plainTextByteArr)
-
-        // Use android.util.Base64 for encoding
-        return Base64.encodeToString(encrypted, Base64.DEFAULT) // Encode to Base64 string
-    }
 
 
-    fun ByteArray.toHex() = joinToString(separator = "") { byte -> "%02x".format(byte) }
-
-    fun getFirstNChars(str: String, n:Int) = str.substring(0,n)
 }
-
