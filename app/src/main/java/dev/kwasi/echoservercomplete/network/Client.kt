@@ -27,9 +27,11 @@ class Client (private val networkMessageInterface: NetworkMessageInterface, seed
     private val aesIV = generateIV(strongSeed)
     private var firstMsg = true
 
+
     init {
         thread {
             clientSocket = Socket("192.168.49.1", Server.PORT)
+            Log.e("dd",strongSeed)
             reader = clientSocket.inputStream.bufferedReader()
             writer = clientSocket.outputStream.bufferedWriter()
             ip = clientSocket.inetAddress.hostAddress!!
@@ -37,6 +39,29 @@ class Client (private val networkMessageInterface: NetworkMessageInterface, seed
                 if(firstMsg){
                     val firstContent = ContentModel("I am here", ip)
                     sendMessagePlain(firstContent)
+                    var serverResponse : String?
+                    serverResponse = reader.readLine()
+                    while(serverResponse == null){
+                        serverResponse = reader.readLine()
+                        Log.e("ERROR","Waiting on response from server")
+                    }
+                    val serverContent = Gson().fromJson(serverResponse, ContentModel::class.java)
+                    Log.e("tester",serverContent.message)
+
+                    val encryptedMsg = encryptMessage(serverContent.message,aesKey,aesIV)
+                    Log.e("tester","#e")
+
+                    val serverReply = ContentModel(encryptedMsg,strongSeed)
+                    sendMessagePlain(serverReply)
+
+                    serverResponse = reader.readLine()
+                    while(serverResponse == null){
+                        serverResponse = reader.readLine()
+                        Log.e("ERROR","Waiting on response from server")
+                    }
+
+                    sendMessagePlain(ContentModel(encryptMessage(seedPlaintext, aesKey, aesIV),ip))
+
                     //networkMessageInterface.onContent(firstContent)
                     //firstMsg = false
                 }
@@ -95,6 +120,7 @@ class Client (private val networkMessageInterface: NetworkMessageInterface, seed
     fun close(){
         firstMsg = true
         clientSocket.close()
+
     }
 
     private fun ByteArray.toHex() = joinToString(separator = "") { byte -> "%02x".format(byte) }
@@ -124,8 +150,8 @@ class Client (private val networkMessageInterface: NetworkMessageInterface, seed
 
         val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
         cipher.init(Cipher.ENCRYPT_MODE, aesKey, aesIv)
-
         val encrypt = cipher.doFinal(plainTextByteArr)
+//        return encrypt.toString()
         return Base64.Default.encode(encrypt)
     }
 

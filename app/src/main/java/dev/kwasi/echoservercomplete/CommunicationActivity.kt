@@ -98,7 +98,7 @@ class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerList
             hideKeyboard()
             wfdManager?.discoverPeers()
             val text: EditText = findViewById(R.id.etStudentID)
-            seedPlaintext = text.toString()
+            seedPlaintext = text.text.toString()
         }
         else updateUI()
     }
@@ -185,8 +185,8 @@ class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerList
         }
         val toast = Toast.makeText(this, text , Toast.LENGTH_SHORT)
         toast.show()
-//        wfdHasConnection = groupInfo != null
-        wfdHasConnection = true
+        wfdHasConnection = groupInfo != null
+//        wfdHasConnection = true
 
         if (groupInfo == null){
             server?.close()
