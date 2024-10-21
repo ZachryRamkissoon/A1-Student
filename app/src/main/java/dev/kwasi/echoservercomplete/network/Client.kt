@@ -70,7 +70,7 @@ class Client (private val networkMessageInterface: NetworkMessageInterface, seed
                     Log.e("ERROR","Waiting on response from server")
                 }
                 serverContent = Gson().fromJson(serverResponse, ContentModel::class.java)
-                if(decryptMessage(serverContent.message,aesKey,aesIV)!="VALID"){
+                if(decryptMessage(serverContent.message,aesKey,aesIV)!="Accept"){
 
                     bool = false
                     networkMessageInterface.failedConnection()
