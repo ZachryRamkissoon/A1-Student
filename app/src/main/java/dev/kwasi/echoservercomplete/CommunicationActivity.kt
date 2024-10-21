@@ -230,6 +230,12 @@ class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerList
         }
     }
 
+    override fun failedConnection(){
+        runOnUiThread{
+            wfdHasConnection = false
+            updateUI()
+        }
+    }
 
 
 
