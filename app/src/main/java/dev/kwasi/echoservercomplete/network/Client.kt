@@ -48,13 +48,14 @@ class Client (private val networkMessageInterface: NetworkMessageInterface, seed
                     Log.e("ERROR","Waiting on response from server")
                 }
                 var serverContent = Gson().fromJson(serverResponse, ContentModel::class.java)
-                Log.e("tester",serverContent.message)
+                Log.e("tester receive R",serverContent.message)
 
                 val encryptedMsg = encryptMessage(serverContent.message,aesKey,aesIV)
-                Log.e("tester","#e")
+                Log.e("tester e","#e")
 
                 val serverReply = ContentModel(encryptedMsg,strongSeed)
                 sendMessagePlain(serverReply)
+                Log.e("tester send e", "encryption")
 
                 serverResponse = reader.readLine()
                 while(serverResponse == null){
@@ -83,18 +84,18 @@ class Client (private val networkMessageInterface: NetworkMessageInterface, seed
                 while(true){
                     try{
                         val serverResponse = reader.readLine()
-                        if (serverResponse != null){
+                         if (serverResponse != null){
                             val serverContent = Gson().fromJson(serverResponse, ContentModel::class.java)
-                            if(firstMsg){
-                                //serverContent.message=encryptMessage(serverContent.message, aesKey, aesIV)
-                                sendMessage(serverContent)
-                                //networkMessageInterface.onContent(serverContent)
-                                firstMsg=false
-                            }else{
-                                val temp=serverContent.message.reversed()
-                                serverContent.message=decryptMessage(temp,aesKey, aesIV)
-                                networkMessageInterface.onContent(serverContent)
-                            }
+//                            if(firstMsg){
+//                                //serverContent.message=encryptMessage(serverContent.message, aesKey, aesIV)
+//                                sendMessage(serverContent)
+//                                //networkMessageInterface.onContent(serverContent)
+//                                firstMsg=false
+//                            }else{
+                                val t1 = decryptMessage(serverContent.message,aesKey,aesIV)
+                                val decryptedMessage = ContentModel(t1,"192.168.49.1")
+                                networkMessageInterface.onContent(decryptedMessage)
+//                            }
                         }
                     } catch(e: Exception){
                         Log.e("CLIENT", "An error has occurred in the client")
