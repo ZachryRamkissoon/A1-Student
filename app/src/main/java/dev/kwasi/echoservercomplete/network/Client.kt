@@ -32,11 +32,10 @@ class Client (private val networkMessageInterface: NetworkMessageInterface, seed
     init {
         thread {
             clientSocket = Socket("192.168.49.1", Server.PORT)
-            Log.e("dd",strongSeed)
+            Log.e("ss",strongSeed)
             reader = clientSocket.inputStream.bufferedReader()
             writer = clientSocket.outputStream.bufferedWriter()
             ip = clientSocket.inetAddress.hostAddress!!
-
 
             try{
                 val firstContent = ContentModel("I am here", ip)
@@ -84,18 +83,11 @@ class Client (private val networkMessageInterface: NetworkMessageInterface, seed
                 while(true){
                     try{
                         val serverResponse = reader.readLine()
-                         if (serverResponse != null){
+                        if (serverResponse != null){
                             val serverContent = Gson().fromJson(serverResponse, ContentModel::class.java)
-//                            if(firstMsg){
-//                                //serverContent.message=encryptMessage(serverContent.message, aesKey, aesIV)
-//                                sendMessage(serverContent)
-//                                //networkMessageInterface.onContent(serverContent)
-//                                firstMsg=false
-//                            }else{
-                                val t1 = decryptMessage(serverContent.message,aesKey,aesIV)
-                                val decryptedMessage = ContentModel(t1,"192.168.49.1")
-                                networkMessageInterface.onContent(decryptedMessage)
-//                            }
+                            val t1 = decryptMessage(serverContent.message,aesKey,aesIV)
+                            val decryptedMessage = ContentModel(t1,"192.168.49.1")
+                            networkMessageInterface.onContent(decryptedMessage)
                         }
                     } catch(e: Exception){
                         Log.e("CLIENT", "An error has occurred in the client")
@@ -111,7 +103,6 @@ class Client (private val networkMessageInterface: NetworkMessageInterface, seed
             if (!clientSocket.isConnected){
                 throw Exception("We aren't currently connected to the server!")
             }
-
 
             content.message=encryptMessage(content.message, aesKey, aesIV)
             val contentAsStr:String = Gson().toJson(content)
@@ -137,7 +128,6 @@ class Client (private val networkMessageInterface: NetworkMessageInterface, seed
     fun close(){
         firstMsg = true
         clientSocket.close()
-
     }
 
     private fun ByteArray.toHex() = joinToString(separator = "") { byte -> "%02x".format(byte) }
@@ -182,6 +172,5 @@ class Client (private val networkMessageInterface: NetworkMessageInterface, seed
 
         val decrypt = cipher.doFinal(textToDecrypt)
         return String(decrypt)
-
     }
 }

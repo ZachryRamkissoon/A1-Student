@@ -139,15 +139,15 @@ class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerList
 
 
     private fun isValidID(){
-        val et: EditText = findViewById(R.id.etStudentID)
+        val et1: EditText = findViewById(R.id.etStudentID)
 
-        val value = et.text.toString().toIntOrNull()
+        val id = et1.text.toString().toIntOrNull()
         var text = " "
-        if (value != null && value in 810000000 until 900000000) {
-            text="Updating Listings..."
+        if (id != null && id in 810000000 until 900000000) {
+            text="Updating Class List..."
             validID = true
         } else {
-            text="ID is  invalid"
+            text="ID is invalid"
             validID = false
         }
 
@@ -198,15 +198,11 @@ class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerList
         } else if (!groupInfo.isGroupOwner && client == null) {
             client = Client(this, seedPlaintext.toString())
             deviceIp = client!!.ip
-            //val content = ContentModel("I am here", deviceIp)
-            //client?.sendMessagePlain(content)
-
         }
     }
 
     override fun onDeviceStatusChanged(thisDevice: WifiP2pDevice) {
         val toast = Toast.makeText(this, "Device parameters have been updated" , Toast.LENGTH_SHORT)
-
         toast.show()
     }
 
@@ -222,11 +218,10 @@ class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerList
     }
 
     private fun hideKeyboard() {
-        // Get the current focus
-        val view = this.currentFocus
-        if (view != null) {
-            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(view.windowToken, 0)
+        val screen = this.currentFocus
+        if (screen != null) {
+            val hide = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            hide.hideSoftInputFromWindow(screen.windowToken, 0)
         }
     }
 
@@ -236,7 +231,5 @@ class CommunicationActivity : AppCompatActivity(), WifiDirectInterface, PeerList
             updateUI()
         }
     }
-
-
 
 }
